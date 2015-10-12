@@ -13,7 +13,7 @@
 // Parameters
 //   NAME              DEFAULT      DESCRIPTION
 //   ----------------- ------------ --------------------------------------------
-//   PORTS             4            Number of ports to arbitrate
+//   PORTS             8            Number of ports to arbitrate
 //   REG_OUTPUT        1            Register outputs.
 // -----------------------------------------------------------------------------
 // Reuse Issues:
@@ -38,28 +38,29 @@
 //
 // EXAMPLES:
 //   request      ->        0110          1100
-//   double_req   ->   0110_0110     1100_1100  
+//   request_2w   ->   0110_0110     1100_1100  double request
 //   priority_ctr -> -      1000          0001
 //                     ---------     ---------
 //   difference        0101_1110     1100_1011
 //  ~difference        1010_0001     0011_0100
-//   double_req      & 0110_0110     1100_1100
+//   request_2w      & 0110_0110     1100_1100
 //                     ---------     ---------
 //   request[1] wins   0010_0000     0000_0100  request[2] wins
 // -----------------------------------------------------------------------------
 
 module rnd_robin_arbiter #( 
 
-  parameter PORTS      = 16,
+  parameter PORTS      = 8,
   parameter REG_OUTPUT = 1 )
 
   (
     input                            clk,
-    input                            rst,        // Asynchronous reset
-    input                            enable,     // Assert to advance the ring counter
+    input                            rst,          // Asynchronous reset
+    input                            enable,       // Assert to advance the ring counter
     input                [PORTS-1:0] request,
-    output logic         [PORTS-1:0] grant,      // one-hot encoded vector
-    output logic [$clog2(PORTS)-1:0] grant_port  // port number of the grant
+    output logic         [PORTS-1:0] grant,        // one-hot encoded vector
+    output logic [$clog2(PORTS)-1:0] grant_port,   // port number of the grant
+    output logic                     grant_port_dv
   );
 
 
@@ -68,15 +69,15 @@ module rnd_robin_arbiter #(
   // ---------------------------------------------------------------------------
   localparam PORTS_LOG2 = $clog2(PORTS);
 
+
   // ---------------------------------------------------------------------------
   // Signal Declarations 
   // ---------------------------------------------------------------------------
-  wire     [2*PORTS-1:0] double_req   = {request,request};
-  wire     [2*PORTS-1:0] double_grant = double_req & ~(double_req-priority_ctr);
-  wire       [PORTS-1:0] grant_next   = double_grant[PORTS-1:0] | double_grant[2*PORTS-1:PORTS];
+  wire     [2*PORTS-1:0] request_2w   = {request,request};
+  wire     [2*PORTS-1:0] grant_2w     = request_2w & ~(request_2w-priority_ctr);
+  wire       [PORTS-1:0] grant_next   = grant_2w[PORTS-1:0] | grant_2w[2*PORTS-1:PORTS];
   logic      [PORTS-1:0] priority_ctr;
   logic [PORTS_LOG2-1:0] grant_addr;
-  logic                  grant_addr_valid;
 
 
   // ---------------------------------------------------------------------------
@@ -84,8 +85,8 @@ module rnd_robin_arbiter #(
   // ---------------------------------------------------------------------------
   priority_encoder #(
 
-    .V_WIDTH    ( PORTS ),         // bit-width of input vector
-    .PIPELINE   ( 1 ),
+    .VWIDTH     ( PORTS ),         // bit-width of input vector
+    .PIPELINE   ( REG_OUTPUT ),    // Only register the last stage.
     .SEARCH_DIR ( 0 ),             // 0: Search lsb to msb, 1: Search msb to lsb
     .SEARCH_VAL ( 1 ))             // 0: Find first 0, 1: Find first 1
 
@@ -93,11 +94,9 @@ module rnd_robin_arbiter #(
       .clk    ( clk ),             // I
       .rst    ( rst ),             // I
       .vector ( grant_next ),      // I [VWIDTH-1:0]  Vector to search
-      .addr   ( grant_addr ),      // O [AWIDTH-1:0]  bit-position of first SEARCH_VAL found   
-      .valid  ( grant_addr_valid ) // O               indicates 'addr' output is valid and SEARCH_VAL found
+      .addr   ( grant_port ),      // O [AWIDTH-1:0]  bit-position of first SEARCH_VAL found   
+      .valid  ( grant_port_dv )    // O               indicates 'addr' output is valid and SEARCH_VAL found
     );
-
-  assign grant_port = grant_addr;   // grant_adddr registered in the priority_encoder block.
 
 
   // ---------------------------------------------------------------------------
@@ -124,11 +123,10 @@ module rnd_robin_arbiter #(
 	end
       end
     end else begin: comb_output
-      assign grant = double_grant[PORTS-1:0] | double_grant[2*PORTS-1:PORTS];
+      assign grant = grant_2w[PORTS-1:0] | grant_2w[2*PORTS-1:PORTS];
     end
   endgenerate
 
-  
 
 endmodule
 
