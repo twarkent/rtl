@@ -1,7 +1,7 @@
 // ------------------------------------------------------------------------------------------------
 // Copyright (c) 2015, Tim Warkentin. All Rights Reserved.
 // ------------------------------------------------------------------------------------------------
-// FILE NAME      : 
+// FILE NAME      : nco.sv
 // CURRENT AUTHOR : Tim Warkentin
 // AUTHOR'S EMAIL : tim.warkentin@gmail.com
 // ------------------------------------------------------------------------------------------------
@@ -10,10 +10,11 @@
 // PARAMETERS
 //   NAME            DEFAULT        DESCRIPTION
 //   --------------- -------------- ---------------------------------------------------------------
+//   DEPTH           128            Memory depth 
 // ------------------------------------------------------------------------------------------------
 // REUSE ISSUES:
-//   Reset Strategy:      Asynchronous
-//   Clock Domains:       Generic
+//   Reset Strategy:      sync/async etc.
+//   Clock Domains:       generic
 //   Critical Timing:     None
 //   Test Features:       None
 //   Asynchronous I/F:    None

@@ -95,7 +95,8 @@ module rnd_robin_arbiter #(
       .rst    ( rst ),             // I
       .vector ( grant_next ),      // I [VWIDTH-1:0]  Vector to search
       .addr   ( grant_port ),      // O [AWIDTH-1:0]  bit-position of first SEARCH_VAL found   
-      .valid  ( grant_port_dv )    // O               indicates 'addr' output is valid and SEARCH_VAL found
+      .found  ( grant_found ),     // O               SEARCH_VAL found
+      .dv     ( grant_port_dv )    // O               indicates outputs are valid
     );
 
 
@@ -123,7 +124,7 @@ module rnd_robin_arbiter #(
 	end
       end
     end else begin: comb_output
-      assign grant = grant_2w[PORTS-1:0] | grant_2w[2*PORTS-1:PORTS];
+      assign grant = grant_next;
     end
   endgenerate
 
