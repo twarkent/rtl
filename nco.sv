@@ -73,6 +73,7 @@ module nco #(
   // ---------------------------------------------------------------------------
   // Signal Assignments & combinational logic
   // ---------------------------------------------------------------------------
+ 
   // Amplitude RAM Port-A ---------------------
   assign mem_clk[0]   = bus.clk;
   assign mem_wr       = bus.wr;
