@@ -28,20 +28,20 @@
 // ------------------------------------------------------------------------------------------------
 // NOTES:
 //
-//   1. A PIPELINE parameter of 16'h1 would have the following effect given a VWDITH of 8:
+//   1. A PIPELINE parameter of 3'b011 would have the following effect given a VWDITH of 8:
 // 
 //      --
 //        |-A-
 //      --    |
-//            |-
-//      --    | |
-//        |-A-  |
-//      --      |
-//              |-R,  Where A = Async output, R = Registered Output
-//      --      |
-//        |-A-  |
-//      --    | |
-//            |-
+//            |-R-
+//      --    |   |
+//        |-A-    |
+//      --        |
+//                |-R,  Where A = Async output, R = Registered Output
+//      --        |
+//        |-A-    |
+//      --    |   |
+//            |-R-
 //      --    |
 //        |-A-
 //      --
