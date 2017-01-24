@@ -24,11 +24,11 @@
 //   Asynchronous I/F: None
 //   Synthesizable:    Yes
 // ------------------------------------------------------------------------------------------------
-// INSTANTIATIONS:     priority_encoder.v (recursive)
+// INSTANTIATIONS:     array_search (recursive)
 // ------------------------------------------------------------------------------------------------
 // NOTES:
 //
-//   1. A PIPELINE parameter of 3'b011 would have the following effect given a VWDITH of 8:
+//   1. A PIPELINE parameter of 3'b011 would have the following effect given a DEPTH value of 8:
 // 
 //      --
 //        |-A-
@@ -52,14 +52,13 @@ module array_search #(
 
   parameter DWIDTH     = 8,                                     // Data bit-width.
   parameter DEPTH      = 8,                                     // Array Depth
-  parameter PIPELINE   = 32'h1,                                 // Requires 1-bit per stage
+  parameter PIPELINE   = 32'h7,                                 // Requires 1-bit per stage
   parameter SEARCH_MAX = 1'b0,                                  // 0: Search for min value, 1: search for max value
   parameter AWIDTH     = $clog2(DEPTH))
 
   (
     input                     clk,
     input                     rst,
-    input                     en,
     input        [DWIDTH-1:0] array [DEPTH],                    // Array to search
 
     output logic [AWIDTH-1:0] addr,                             // address of min/max value
@@ -91,20 +90,17 @@ module array_search #(
             addr  <= '0;
             data  <= '0;
             dv    <= '0;
-          end else if (en) begin
+          end else begin
             addr <= 1'b0;
             data <= array[0];
             dv   <= 1'b1;
-          end
-          else begin
-            dv <= 1'b0;
           end
         end
 
       else begin: BASE_1_COMB
         assign addr  = 1'b0;
         assign data  = array[0];
-        assign dv    = (en)? 1'b1 : 1'b0;
+        assign dv    = 1'b1;
       end
 
     // -----------------------------------------------
@@ -117,7 +113,7 @@ module array_search #(
             addr <= '0;
             data <= '0;
             dv   <= '0;
-          end else if (en) begin
+          end else begin
             dv <= '1;
 
             // Search for min/max value
@@ -128,14 +124,11 @@ module array_search #(
               addr <= ~SEARCH_MAX;
               data <= array[~SEARCH_MAX];
             end
-
-          end else begin
-            dv <= '0;
           end
         end
 
       end else begin: BASE_2_COMB
-        assign dv = (en)? 1'b1 : 1'b0;
+        assign dv = 1'b1;
         always_comb begin
           if ( array[1] >= array[0] ) begin
             addr = SEARCH_MAX;
@@ -154,10 +147,10 @@ module array_search #(
     end else begin: DEPTH_N
  
       // Search lower half -----------------
-      logic [DWIDTH-1:0] low_array[LOW_DEPTH];
-      logic [AWIDTH-2:0] low_addr;
-      logic [DWIDTH-1:0] low_data;
-      logic              low_dv;
+      logic            [DWIDTH-1:0] low_array[LOW_DEPTH];
+      logic [$clog2(LOW_DEPTH)-1:0] low_addr;
+      logic            [DWIDTH-1:0] low_data;
+      logic                         low_dv;
 
       assign low_array = array[0:LOW_DEPTH-1];
 
@@ -169,19 +162,19 @@ module array_search #(
         .SEARCH_MAX ( SEARCH_MAX ) )            // 0: Search for min value, 1: search for max value
 
         search_low (
-          .clk    ( clk ),
-          .rst    ( rst ),
-          .array  ( low_array ),
-          .addr   ( low_addr ),
-          .data   ( low_data ),     
-          .dv     ( low_dv )
+          .clk    ( clk ),          // I
+          .rst    ( rst ),          // I
+          .array  ( low_array ),    // I
+          .addr   ( low_addr ),     // O
+          .data   ( low_data ),     // O
+          .dv     ( low_dv )        // O
         );
 
       // Search upper half -----------------
-      logic [DWIDTH-1:0] high_array[HIGH_DEPTH];
-      logic [AWIDTH-2:0] high_addr;
-      logic              high_found; 
-      logic              high_dv;
+      logic             [DWIDTH-1:0] high_array[HIGH_DEPTH];
+      logic [$clog2(HIGH_DEPTH)-1:0] high_addr;
+      logic             [DWIDTH-1:0] high_data;
+      logic                          high_dv;
 
       assign high_array = array[LOW_DEPTH:DEPTH-1];
 
@@ -193,12 +186,12 @@ module array_search #(
         .SEARCH_MAX ( SEARCH_MAX ) )            // 0: Search for min value, 1: search for max value
 
         search_high (
-          .clk    ( clk ),
-          .rst    ( rst ),
-          .array  ( high_array ),
-          .addr   ( high_addr ),
-          .data   ( high_data ),     
-          .dv     ( high_dv )
+          .clk    ( clk ),          // I
+          .rst    ( rst ),          // I
+          .array  ( high_array ),   // I
+          .addr   ( high_addr ),    // O
+          .data   ( high_data ),    // O
+          .dv     ( high_dv )       // O
         );
 
       // ----------------------------------------------------
@@ -211,10 +204,26 @@ module array_search #(
             data <= '0;
             dv   <= '0;
           end else begin
+            dv <= high_dv | low_dv;
+            if ( high_data >= low_data ) begin
+              addr <= (SEARCH_MAX)? {1'b1, high_addr} : {1'b0,low_addr};
+              data <= (SEARCH_MAX)? high_data : low_data;
+            end else begin
+              addr <= (SEARCH_MAX)? {1'b0, low_addr} : {1'b1,high_addr};
+              data <= (SEARCH_MAX)? low_data : high_data;
+            end
           end
         end
 
       end else begin: COMBINE_COMB // combinational
+        assign dv = high_dv | low_dv;
+        if ( SEARCH_MAX ) begin: COMBINE_COMB_MAX
+          assign addr = (high_data >= low_data)? {1'b1, high_addr} : {1'b0,low_addr};
+          assign data = (high_data >= low_data)? high_data : low_data;
+        end else begin: COMBINE_COMB_MIN
+          assign addr = (high_data >= low_data)? {1'b0, low_addr} : {1'b1,high_addr};
+          assign data = (high_data >= low_data)? low_data : high_data;
+        end
       end
     end
   endgenerate
